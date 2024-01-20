@@ -15,8 +15,9 @@ GPU CI/CD runner that works.
 - Create service account with appropriate permissions
 - Test run `sky launch` using that service account on your laptop
 - Add two env vars to repo secrets
-  - `GCP_SERVICE_ACCOUNT_KEY`
   - `GCP_PROJECT_ID`
+  - `GCP_SERVICE_ACCOUNT_KEY`
+![](https://i.imgur.com/pjBgPGk.png)
 
 ## Successful run example
 
