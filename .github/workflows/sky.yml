@@ -1,0 +1,75 @@
+# Usage:
+#
+#  1. Replace the `sky launch ... -- exit 0` command with whatever test command
+#     you want to run.
+#  2. GitHub repo -> Secrets -> add
+#     - `GCP_SERVICE_ACCOUNT_KEY`: contents of your GCP service account key.
+#     - `GCP_PROJECT_ID`: your GCP project ID.
+
+name: Sky CI
+
+on:
+  pull_request:
+    branches: [ '*' ]
+
+jobs:
+  run-sky:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+    - name: Install dependencies
+      env:
+        GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+        GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      run: |
+        pip install skypilot-nightly[gcp] &
+        conda install -c conda-forge google-cloud-sdk -y &
+        wait
+
+        # Set environment variables for later steps
+        echo "VM_NAME=ci-test-$(date +%s)" >> $GITHUB_ENV
+        echo $GCP_SERVICE_ACCOUNT_KEY > $HOME/service_account_key.json
+        echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/service_account_key.json" >> $GITHUB_ENV
+        echo "GCP_PROJECT_ID=$GCP_PROJECT_ID" >> $GITHUB_ENV
+    - name: Run sky
+      run: |
+        set -e
+
+        # GCP credential setup.
+        gcloud auth activate-service-account --key-file $GOOGLE_APPLICATION_CREDENTIALS &> /dev/null
+        gcloud config set project $GCP_PROJECT_ID &> /dev/null
+        sky --version
+
+        sky check
+
+        # Launch the real test:
+        #   - Add `--gpus <gpu>` to launch whatever GPU is required
+        #   - Replace the command with any test command, or a SkyPilot YAML
+        #
+        # Reference SkyPilot docs for more: https://docs.skypilot.co/
+        #
+        # This VM is automatically shut down after the job exits (--down -i0).
+
+        sky launch -c $VM_NAME --cloud gcp --down -i0 -y --use-spot --cpus 2+ -- exit 0
+
+        # Exit with code 0 if job succeeded; 1 if failed
+        sky logs $VM_NAME 1 --status
+
+    - name: Cleanup
+      if: always()
+      run: |
+          gcloud auth activate-service-account --key-file $GOOGLE_APPLICATION_CREDENTIALS &> /dev/null
+          gcloud config set project $GCP_PROJECT_ID &> /dev/null
+          echo "Performing cleanup tasks..."
+
+          # If the main step is canceled during a `sky launch`, we need to
+          # remove the lock so that `sky down` below doesn't throw a lock-in-use
+          # error.
+          rm -rf $HOME/.sky/.$VM_NAME.lock
+
+          sky down -y $VM_NAME
