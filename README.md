@@ -1,5 +1,7 @@
 # SkyPilot in GitHub Action
 
+*Testing: Adding some random commit to test the CI/CD in PR*
+
 GPU CI/CD runner that works.
 
 - Run tests on any GPU VMs on the cloud in GitHub Action

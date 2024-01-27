@@ -38,7 +38,7 @@ jobs:
         echo "GCP_PROJECT_ID=$GCP_PROJECT_ID" >> $GITHUB_ENV
     - name: Run sky
       run: |
-        set -e
+        set -ex
 
         # GCP credential setup.
         gcloud auth activate-service-account --key-file $GOOGLE_APPLICATION_CREDENTIALS &> /dev/null
